@@ -28,11 +28,18 @@ require 'time'
 require 'sensu-plugin/check/cli'
 
 class ResticSnapshot < Sensu::Plugin::Check::CLI
+
   option :path,
          short: '-p RESTIC_PATH',
          long: '--path RESTIC_PATH',
          description: 'Path to the restic client binary.  Defaults to /usr/bin/restic',
          default: '/usr/bin/restic'
+
+  option :missing_status,
+         long: '--missing-status STATUS',
+         description: 'Returns this exit status there there is no snapshot',
+         default: 'critical',
+         in: %w[unknown warning critical]
 
   option :warning_age,
          short: '-w SECONDS',
@@ -49,8 +56,13 @@ class ResticSnapshot < Sensu::Plugin::Check::CLI
          required: true
 
   def run
-    last_snap = latest_snapshot_time
+    snapshots = available_snapshots
+    if snapshots.length == 0
+      send(config[:missing_status], 'No backup found')
+    end
+    last_snap = Time.parse(snapshots[-1][:time])
     age = (Time.now - last_snap).to_i
+
     msg = "Last backup was at #{last_snap}"
     if age >= config[:critical_age]
       critical msg
@@ -61,14 +73,10 @@ class ResticSnapshot < Sensu::Plugin::Check::CLI
     end
   end
 
-  def latest_snapshot_time
-    Time.parse(snapshots[-1][:time])
-  end
-
   #
   # Return an array of hashes with details about the snapshots
   #
-  def snapshots
+  def available_snapshots
     snapshot_info = `#{config[:path]} --json snapshots`
     JSON.parse(snapshot_info, { symbolize_names: true })
   end
