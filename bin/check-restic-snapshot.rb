@@ -39,7 +39,7 @@ class ResticSnapshot < Sensu::Plugin::Check::CLI
          long: '--missing-status STATUS',
          description: 'Returns this exit status there there is no snapshot',
          default: 'critical',
-         in: %w[unknown warning critical]
+         in: %w[unknown ok warning critical]
 
   option :warning_age,
          short: '-w SECONDS',
